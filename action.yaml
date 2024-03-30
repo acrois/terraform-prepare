@@ -1,0 +1,56 @@
+name: terraform-prepare
+description: "Plans a specific Terraform project"
+author: Aaron Croissette
+inputs:
+  env:
+    description: "Environment directory"
+    required: true
+    default: aws
+  scope:
+    description: "Environment scope subdirectory (e.g. global, production, staging)"
+    required: true
+  service:
+    description: "Environment service subdirectory (e.g. iam, s3, vpc)"
+    required: true
+  region:
+    description: "AWS Region"
+    required: true
+    default: "us-east-1"
+  role:
+    description: "AWS role ARN to assume for action"
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Set Terraform Directory
+      shell: sh
+      env:
+        TF_ENV: ${{ inputs.env }}
+        TF_SCOPE: ${{ inputs.scope }}
+        TF_SERVICE: ${{ inputs.service }}
+      run: |
+        echo "TF_DIRECTORY=$TF_ENV/$TF_SCOPE/$TF_SERVICE" >> "$GITHUB_ENV"
+    - name: Clone the changes
+      uses: actions/checkout@v4
+      with:
+        sparse-checkout: |
+          .github
+          ${{ env.TF_DIRECTORY }}
+    - name: Clean defaults
+      shell: sh
+      run: |
+        rm .env
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        role-to-assume: ${{ inputs.role }}
+        role-session-name: gha-deploy-${{ inputs.env }}-${{ inputs.scope }}-${{ inputs.service }}
+        aws-region: ${{ inputs.region }}
+    - name: Show AWS caller identity
+      shell: sh
+      run: aws sts get-caller-identity
+    - name: Terraform plan
+      uses: dflook/terraform-plan@v1
+      with:
+        path: ./${{ env.TF_DIRECTORY }}
+        label: ${{ env.TF_DIRECTORY }}
