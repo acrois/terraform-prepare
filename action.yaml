@@ -36,10 +36,6 @@ runs:
         sparse-checkout: |
           .github
           ${{ env.TF_DIRECTORY }}
-    - name: Clean defaults
-      shell: sh
-      run: |
-        rm .env
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v2
       with:
